@@ -167,3 +167,29 @@ app.get('/books/', async (request, response) => {
   const booksArray = await db.all(getBooksQuery)
   response.send(booksArray)
 })
+
+
+//joins
+//How many books that author written using joins
+app.get("/authors/:authorId/books/count/", async (request, response) => {
+  const { authorId } = request.params;
+  const getAuthorBookCountQuery = `
+    SELECT 
+      author.author_id,
+      author.author_name,
+      COUNT(book.book_id) AS total_books
+    FROM 
+      author
+    JOIN 
+      book 
+    ON 
+      author.author_id = book.author_id
+    WHERE 
+      author.author_id = ${authorId}
+    GROUP BY 
+      author.author_id;`;
+
+  const bookCount = await db.get(getAuthorBookCountQuery);
+  response.send(bookCount);
+});
+
