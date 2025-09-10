@@ -3,6 +3,7 @@ const path = require('path')
 
 const {open} = require('sqlite')
 const sqlite3 = require('sqlite3')
+const jwt = require("jsonwebtoken");
 
 const app = express()
 app.use(express.json())
@@ -26,8 +27,62 @@ const initializeDBAndServer = async () => {
 }
 initializeDBAndServer()
 
+
+
+app.post(`/login/`, async (request, response) => {
+  const {username, password} = request.body
+  try {
+    const getuser = `select * from user where username = '${username}'`
+    const user = await db.get(getuser)
+    if (user === undefined) {
+      response.status(400)
+      response.send('Invalid user')
+    } else {
+      isPasswordMathced = await bcrypt.compare(password, user.password)
+      if (isPasswordMathced === true) {
+        const payload = {username: username}
+        const jwtToken = jwt.sign(payload, 'secretkey')
+        response.send({jwtToken})
+      } else {
+        response.status(400)
+        response.send('Invalid password')
+      }
+    }
+  } catch (e) {
+    process.exit(1)
+  }
+})
+
+
+
+// Secret key for signing JWT (keep it safe, use env variable in real projects)
+const JWT_SECRET = "MY_SECRET_KEY";
+
+// Middleware to verify JWT
+const authenticateToken = (request, response, next) => {
+  const authHeader = request.headers["authorization"];
+
+  // Format: "Bearer <token>"
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (token === undefined) {
+    response.status(401).send({ error: "Access Denied. Token Missing" });
+  } else {
+    jwt.verify(token, JWT_SECRET, (error, payload) => {
+      if (error) {
+        response.status(403).send({ error: "Invalid Token" });
+      } else {
+        // store payload in request object for later use
+        request.user = payload;
+        next();
+      }
+    });
+  }
+};
+
+
 // Get Books API
-app.get('/books/', async (request, response) => {
+app.get('/books/',authenticateToken, async (request, response) => {
   const getBooksQuery = `
     SELECT
       *
@@ -40,7 +95,7 @@ app.get('/books/', async (request, response) => {
 })
 
 //Get Book API
-app.get('/books/:bookId/', async (request, response) => {
+app.get('/books/:bookId/',authenticateToken, async (request, response) => {
   const {bookId} = request.params
   const bookQuery = `SELECT * FROM book 
   WHERE book_id = ${bookId};`
@@ -48,7 +103,7 @@ app.get('/books/:bookId/', async (request, response) => {
   response.send(getbook)
 })
 
-app.post('/books/', async (request, response) => {
+app.post('/books/',authenticateToken, async (request, response) => {
   const bookDetails = request.body
   const {
     title,
@@ -86,7 +141,7 @@ app.post('/books/', async (request, response) => {
   response.send({bookId: bookId})
 })
 
-app.put('/books/:bookId/', async (request, response) => {
+app.put('/books/:bookId/',authenticateToken, async (request, response) => {
   const {bookId} = request.params
   const bookDetails = request.body
   const {
@@ -123,7 +178,7 @@ app.put('/books/:bookId/', async (request, response) => {
   response.send('Book Updated Successfully')
 })
 
-app.delete('/books/:bookId/', async (request, response) => {
+app.delete('/books/:bookId/',authenticateToken, async (request, response) => {
   const {bookId} = request.params
   const deleteBookQuery = `
     DELETE FROM
@@ -147,7 +202,7 @@ app.get('/authors/:authorId/books/', async (request, response) => {
   response.send(booksArray)
 })
 
-app.get('/books/', async (request, response) => {
+app.get('/books/',authenticateToken, async (request, response) => {
   const {
     offset = 2,
     limit = 5,
@@ -171,7 +226,7 @@ app.get('/books/', async (request, response) => {
 
 //joins
 //How many books that author written using joins
-app.get("/authors/:authorId/books/count/", async (request, response) => {
+app.get("/authors/:authorId/books/count/",authenticateToken, async (request, response) => {
   const { authorId } = request.params;
   const getAuthorBookCountQuery = `
     SELECT 
