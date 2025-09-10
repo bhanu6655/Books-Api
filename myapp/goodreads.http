@@ -50,3 +50,6 @@ DELETE http://localhost:3000/books/41/
 ###
 
 GET http://localhost:3000/authors/1/books/
+
+####
+GET http://localhost:3000/books/?offset=0&limit=10&order=ASC&order_by=title&search_q=Harry
